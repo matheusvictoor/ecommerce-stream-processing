@@ -40,8 +40,7 @@ def main():
         .key_by(lambda x: x[0]) \
         .window(TumblingProcessingTimeWindows.of(Time.minutes(1))) \
         .reduce(lambda a, b: (a[0], a[1], a[2], a[3] + b[3], a[4]))
-
-   env.execute("E-commerce Real-Time Sales Aggregation")
+    env.execute("E-commerce Real-Time Sales Aggregation")
 
 if _name_ == '_main_':
     main()
