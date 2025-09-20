@@ -42,5 +42,5 @@ def main():
         .reduce(lambda a, b: (a[0], a[1], a[2], a[3] + b[3], a[4]))
     env.execute("E-commerce Real-Time Sales Aggregation")
 
-if _name_ == '_main_':
+if __name__ == '_main_':
     main()
