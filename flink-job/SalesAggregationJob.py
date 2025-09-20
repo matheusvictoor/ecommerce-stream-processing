@@ -44,3 +44,24 @@ def main():
 
 if __name__ == '_main_':
     main()
+
+jdbc_sink = JdbcSink.sink(
+    "INSERT INTO sales_summary (category, brand, payment_method, total_revenue, window_start, window_end) VALUES (?, ?, ?, ?, ?, ?)",
+    lambda row: (
+        row[0], row[1], row[2], row[3],
+        datetime.now(), datetime.now()
+    ),
+    JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .with_url('jdbc:postgresql://postgres:5432/ecommerce')
+        .with_driver_name('org.postgresql.Driver')
+        .with_user_name('user')
+        .with_password('password')
+        .build(),
+    JdbcExecutionOptions.builder()
+        .with_batch_interval_ms(1000)
+        .with_batch_size(100)
+        .with_max_retries(5)
+        .build()
+)
+
+windowed.add_sink(jdbc_sink)
