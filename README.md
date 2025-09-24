@@ -31,9 +31,38 @@ Elasticsearch + Kibana para visualização interativa e análise em tempo real
 
 
 ## 📦 Estrutura do Projeto
-BASE-STREAM-PROCESSING/
-
-Em breve
+```
+ECOMMERCE-STREAM-PROCESSING/
+├─ README.md
+├─ architecture.png
+├─ docker-compose.yml
+├─ elasticsearch
+│  └─ templates
+│     └─ transaction_template.json
+├─ flink-job
+│  ├─ Dockerfile
+│  ├─ SalesAggregationJob.py
+│     ├─ flink-connector-jdbc-3.1.2-1.18.jar
+│     ├─ flink-connector-kafka-3.0.1-1.18.jar
+│     ├─ flink-sql-connector-elasticsearch7-3.1.0-1.18.jar
+│     ├─ kafka-clients-3.4.0.jar
+│     └─ postgresql-42.6.0.jar
+├─ kibana
+│  └─ kibana.yml
+├─ locust
+│  ├─ Dockerfile
+│  └─ locustfile.py
+├─ postgres
+│  └─ init.sql
+├─ producer
+│  ├─ Dockerfile
+│  ├─ producer.py
+│  └─ requirements.txt
+├─ scripts
+│  └─ start-all.sh
+└─ tests
+   └─ load_test.sh
+```
 
 
 ## 🚀 Tecnologias
@@ -59,13 +88,13 @@ Passo a passo
 mkdir -p flink-job/lib
 
 # Conector JDBC
-wget https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.1.0-1.17/flink-connector-jdbc-3.1.0-1.17.jar -P flink-job/lib/
+wget https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.1.2-1.18/flink-connector-jdbc-3.1.2-1.18.jar -P flink-job/lib/
 
 # Conector Elasticsearch 7
-wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-elasticsearch7_2.12/1.18.1/flink-sql-connector-elasticsearch7_2.12-1.18.1.jar -P flink-job/lib/
+wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-elasticsearch7/3.1.0-1.18/flink-sql-connector-elasticsearch7-3.1.0-1.18.jar -P flink-job/lib/
 
 # Driver JDBC do PostgreSQL
-wget https://jdbc.postgresql.org/download/postgresql-42.7.3.jar -P flink-job/lib/
+wget https://jdbc.postgresql.org/download/postgresql-42.6.0.jar -P flink-job/lib/
 ```
 
 2. Iniciar toda a stack:
