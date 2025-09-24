@@ -4,19 +4,68 @@ from pyflink.common.serialization import SimpleStringSchema
 from pyflink.common.typeinfo import Types
 from pyflink.datastream.window import TumblingProcessingTimeWindows
 from pyflink.datastream.functions import MapFunction
+from pyflink.common.watermark_strategy import WatermarkStrategy
+from pyflink.datastream.connectors.jdbc import JdbcSink, JdbcConnectionOptions, JdbcExecutionOptions
+from pyflink.common import Time
+from pyflink.datastream.connectors.elasticsearch import Elasticsearch7SinkBuilder
+
 import json
 from datetime import datetime
+import os
+
+_conn = None
+def get_pg_conn():
+    global _conn
+    if _conn is None:
+        import psycopg2
+        db = os.getenv('POSTGRES_DB', 'ecommerce')
+        user = os.getenv('POSTGRES_USER', 'user')
+        pwd = os.getenv('POSTGRES_PASSWORD', 'password')
+        host = os.getenv('POSTGRES_HOST', 'postgres')
+        port = int(os.getenv('POSTGRES_PORT', 5432))
+        _conn = psycopg2.connect(dbname=db, user=user, password=pwd, host=host, port=port)
+        _conn.autocommit = True
+    return _conn
+
+def write_to_postgres(record):
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO sales_summary
+            (category, brand, payment_method, total_revenue, window_start, window_end)
+            VALUES (%s, %s, %s, %s, NOW(), NOW())
+            """,
+            (record[0], record[1], record[2], record[3])
+        )
+        cur.close()
+        print(f"[PG] inserted: {record[0]}, {record[3]}")
+    except Exception as e:
+        print(f"[PG] insert error: {e}")
+    return record
 
 class ParseTransaction(MapFunction):
     def map(self, value):
         obj = json.loads(value)
         return (
-            obj['product_category'],
-            obj['product_brand'],
-            obj['payment_method'],
-            float(obj['total_amount']),
-            obj['transaction_id']
+            obj.get('product_category', 'UNKNOWN'),
+            obj.get('product_brand', 'UNKNOWN'),
+            obj.get('payment_method', 'UNKNOWN'),
+            float(obj.get('total_amount', 0.0)),
+            obj.get('transaction_id', None)
         )
+
+def create_es_element(element):
+    return {
+        "@timestamp": datetime.utcnow().isoformat() + "Z",
+        "category": element[0],
+        "brand": element[1],
+        "payment_method": element[2],
+        "total_revenue": element[3],
+        "window_start": datetime.utcnow().isoformat() + "Z"
+    }
+
 
 def main():
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -30,7 +79,11 @@ def main():
         .set_value_only_deserializer(SimpleStringSchema()) \
         .build()
 
-    ds = env.from_source(source, Types.STRING(), "Kafka Source")
+    ds = env.from_source(
+        source,
+        WatermarkStrategy.no_watermarks(),
+        "Kafka Source"
+    )
 
     parsed = ds.map(ParseTransaction(), output_type=Types.TUPLE([
         Types.STRING(), Types.STRING(), Types.STRING(), Types.DOUBLE(), Types.STRING()
@@ -40,28 +93,59 @@ def main():
         .key_by(lambda x: x[0]) \
         .window(TumblingProcessingTimeWindows.of(Time.minutes(1))) \
         .reduce(lambda a, b: (a[0], a[1], a[2], a[3] + b[3], a[4]))
+
+    type_info = Types.ROW_NAMED(
+        ["category", "brand", "payment_method", "total_revenue"],
+        [Types.STRING(), Types.STRING(), Types.STRING(), Types.DOUBLE()]
+    )
+
+    windowed.add_sink(
+        JdbcSink.sink(
+            "INSERT INTO sales_summary (category, brand, payment_method, total_revenue, window_start, window_end) VALUES (?, ?, ?, ?, NOW(), NOW())",
+            type_info,
+            JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+                .with_url("jdbc:postgresql://postgres:5432/ecommerce")
+                .with_driver_name("org.postgresql.Driver")
+                .with_user_name("user")
+                .with_password("password")
+                .build(),
+            JdbcExecutionOptions.builder()
+                .with_batch_interval_ms(200)
+                .with_batch_size(1000)
+                .with_max_retries(5)
+                .build()
+        )
+    ).name("PostgreSQL Sink")
+    
+    def tuple_to_es_dict(record):
+        return {
+            "@timestamp": datetime.utcnow().isoformat() + "Z",
+            "category": record[0],
+            "brand": record[1],
+            "payment_method": record[2],
+            "total_revenue": record[3],
+            "window_start": datetime.utcnow().isoformat() + "Z"
+        }
+
+    es_stream = windowed.map(
+        tuple_to_es_dict,
+        output_type=Types.MAP(Types.STRING(), Types.STRING())
+    )
+
+    es_stream.sink_to(
+        Elasticsearch7SinkBuilder()
+            .set_hosts(['http://elasticsearch:9200'])
+            .set_emitter(
+                lambda element, ctx: [
+                    {"index": {"_index": "transactions-aggregated"}},
+                    element
+                ]
+            )
+            .set_bulk_flush_max_actions(1)
+            .build()
+    ).name("Elasticsearch Sink")
+
     env.execute("E-commerce Real-Time Sales Aggregation")
 
-if __name__ == '_main_':
+if __name__ == '__main__':
     main()
-
-jdbc_sink = JdbcSink.sink(
-    "INSERT INTO sales_summary (category, brand, payment_method, total_revenue, window_start, window_end) VALUES (?, ?, ?, ?, ?, ?)",
-    lambda row: (
-        row[0], row[1], row[2], row[3],
-        datetime.now(), datetime.now()
-    ),
-    JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-        .with_url('jdbc:postgresql://postgres:5432/ecommerce')
-        .with_driver_name('org.postgresql.Driver')
-        .with_user_name('user')
-        .with_password('password')
-        .build(),
-    JdbcExecutionOptions.builder()
-        .with_batch_interval_ms(1000)
-        .with_batch_size(100)
-        .with_max_retries(5)
-        .build()
-)
-
-windowed.add_sink(jdbc_sink)
