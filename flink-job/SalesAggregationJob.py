@@ -7,7 +7,7 @@ from pyflink.datastream.functions import MapFunction
 from pyflink.common.watermark_strategy import WatermarkStrategy
 from pyflink.datastream.connectors.jdbc import JdbcSink, JdbcConnectionOptions, JdbcExecutionOptions
 from pyflink.common import Time
-from pyflink.datastream.connectors.elasticsearch import Elasticsearch7SinkBuilder
+from pyflink.datastream.connectors.elasticsearch import Elasticsearch7SinkBuilder, ElasticsearchEmitter
 
 import json
 from datetime import datetime
@@ -44,7 +44,6 @@ def write_to_postgres(record):
     except Exception as e:
         print(f"[PG] insert error: {e}")
     return record
-
 class ParseTransaction(MapFunction):
     def map(self, value):
         obj = json.loads(value)
@@ -117,6 +116,8 @@ def main():
         )
     ).name("PostgreSQL Sink")
     
+
+    # Mapeia os dados para o formato esperado pelo Elasticsearch
     def tuple_to_es_dict(record):
         return {
             "@timestamp": datetime.utcnow().isoformat() + "Z",
@@ -132,20 +133,38 @@ def main():
         output_type=Types.MAP(Types.STRING(), Types.STRING())
     )
 
-    es_stream.sink_to(
-        Elasticsearch7SinkBuilder()
-            .set_hosts(['http://elasticsearch:9200'])
-            .set_emitter(
-                lambda element, ctx: [
-                    {"index": {"_index": "transactions-aggregated"}},
-                    element
-                ]
-            )
-            .set_bulk_flush_max_actions(1)
-            .build()
-    ).name("Elasticsearch Sink")
+    ELASTICSEARCH_SQL_CONNECTOR_PATH = 'file:///lib/flink-sql-connector-elasticsearch7-1.16.0.jar'
+    env.add_jars(ELASTICSEARCH_SQL_CONNECTOR_PATH)
 
-    env.execute("E-commerce Real-Time Sales Aggregation")
+    es_sink = Elasticsearch7SinkBuilder() \
+        .set_emitter(ElasticsearchEmitter.dynamic_index('category', 'window_start')) \
+        .set_hosts(['http://elasticsearch:9200']) \
+        .set_bulk_flush_max_actions(1) \
+        .set_bulk_flush_max_size_mb(2) \
+        .set_bulk_flush_interval(1000) \
+        .build()
+    
+    es_stream.sink_to(es_sink).name('Elasticsearch 7 Sink')
+    
+    # Funciona mas usa dados estaticos ds de exemplo
+    # def write_to_es7_dynamic_index(env):
+    #     ELASTICSEARCH_SQL_CONNECTOR_PATH = 'file:///lib/flink-sql-connector-elasticsearch7-3.1.0-1.18.jar'
+    #     env.add_jars(ELASTICSEARCH_SQL_CONNECTOR_PATH)
+
+    #     ds = env.from_collection(
+    #         [{'name': 'ada', 'id': '1'}, {'name': 'luna', 'id': '2'}],
+    #         type_info=Types.MAP(Types.STRING(), Types.STRING()))
+
+    #     es7_sink = Elasticsearch7SinkBuilder() \
+    #         .set_emitter(ElasticsearchEmitter.dynamic_index('name', 'id')) \
+    #         .set_hosts(['localhost:9200']) \
+    #         .build()
+
+    #     ds.sink_to(es7_sink).name('es7 dynamic index sink')
+
+    #     env.execute()
+
+    env.execute()
 
 if __name__ == '__main__':
     main()
