@@ -1,0 +1,16 @@
+{
+  "index_patterns": ["transactions-*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "category": { "type": "keyword" },
+        "brand": { "type": "keyword" },
+        "payment_method": { "type": "keyword" },
+        "total_revenue": { "type": "double" },
+        "window_start": { "type": "date" },
+        "transaction_id": { "type": "keyword" }
+      }
+    }
+  }
+}
