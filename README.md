@@ -123,30 +123,16 @@ python tests/validate_pipeline.py
 
 ## 🛠️ Tecnologias Utilizadas
 
-|      CATEGORIA      |                         TECNOLOGIA                                 |   VERSÂO
-|---------------------|----------------------------------------------------------------|
-| **Locust**          | Gera carga simulando usuários reais (transações de compra)     |
-Mensageria
-Apache Kafka + Zookeeper
-7.4.0
-Processamento
-Apache Flink (PyFlink)
-1.18.1
-Armazenamento
-PostgreSQL
-17
-Busca/Visualização
-Elasticsearch + Kibana
-8.11.0
-Geração de Carga
-Locust
-2.25.0
-API
-Flask
-2.3.3
-Orquestração
-Docker Compose
-—
+|      CATEGORIA           |           TECNOLOGIA        |  VERSÂO  |
+|--------------------------|-----------------------------|----------|
+| **Mensageria**           | Apache Kafka + Zookeeper    | 7.4.0    |
+| **Processamento**        | Apache Flink (PyFlink)      | 1.18.1   |
+| **Armazenamento**        | PostgreSQL                  | 17       |
+| **Busca/Visualização**   | Elasticsearch + Kibana      | 8.11.0   | 
+| **Geração de Carga**     | Locust                      | 2.25.0   |
+| **API**                  | Flask                       | 2.3.3    |
+| **Orquestração**         | Docker Compose              |    --    |
+
 
 ## 👥 Contribuidores
 - Matheus Victor Pereira
