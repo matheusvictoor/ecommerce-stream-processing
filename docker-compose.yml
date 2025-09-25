@@ -63,27 +63,18 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC: transactions
 
-  jobmanager:
-    build: ./flink-job
-    container_name: jobmanager
-    ports:
-      - "8081:8081"
-    command: jobmanager
-    environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager
-    volumes:
-      # - ./flink-job/lib:/opt/flink/lib
-      - ./flink-job:/opt/flink/usrlib
-
-  taskmanager:
-    build: ./flink-job
-    container_name: taskmanager
+  stream-processor:
+    build: ./processor
+    container_name: stream-processor
     depends_on:
-      - jobmanager
-    command: taskmanager
+      - kafka
     environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager
-      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=2
+      KAFKA_BROKER: kafka:9092
+      POSTGRES_URL: postgresql://user:password@postgres:5432/ecommerce
+      ELASTICSEARCH_HOST: http://elasticsearch:9200
+    volumes:
+      - ./processor/SalesAggregationJob.py:/app/SalesAggregationJob.py
+      - ./processor/requirements.txt:/app/requirements.txt
 
   postgres:
     image: postgres:17

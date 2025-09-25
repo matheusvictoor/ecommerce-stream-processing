@@ -1,13 +1,31 @@
-CREATE TABLE IF NOT EXISTS sales_summary (
+-- Resumo por Categoria + Método de Pagamento
+CREATE TABLE category_payment_summary (
     id SERIAL PRIMARY KEY,
-    category VARCHAR(100),
-    brand VARCHAR(100),
-    payment_method VARCHAR(50),
-    total_revenue NUMERIC(10,2),
-    window_start TIMESTAMP,
-    window_end TIMESTAMP
+    product_category VARCHAR(100) NOT NULL,
+    payment_method VARCHAR(100) NOT NULL,
+    total_revenue NUMERIC(15,2) NOT NULL,
+    window_start TIMESTAMP DEFAULT NOW(),
+    window_end TIMESTAMP DEFAULT NOW(),
+    timestamp TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_category ON sales_summary(category);
-CREATE INDEX IF NOT EXISTS idx_payment ON sales_summary(payment_method);
-CREATE INDEX IF NOT EXISTS idx_window ON sales_summary(window_start);
+-- Resumo por Marca
+CREATE TABLE brand_summary (
+    id SERIAL PRIMARY KEY,
+    product_brand VARCHAR(100) NOT NULL,
+    total_revenue NUMERIC(15,2) NOT NULL,
+    window_start TIMESTAMP DEFAULT NOW(),
+    window_end TIMESTAMP DEFAULT NOW(),
+    timestamp TIMESTAMP
+);
+
+-- Resumo por Categoria + Hora
+CREATE TABLE category_hour_summary (
+    id SERIAL PRIMARY KEY,
+    product_category VARCHAR(100) NOT NULL,
+    hour_bucket VARCHAR(50) NOT NULL,
+    total_revenue NUMERIC(15,2) NOT NULL,
+    window_start TIMESTAMP DEFAULT NOW(),
+    window_end TIMESTAMP DEFAULT NOW(),
+    timestamp TIMESTAMP
+);
